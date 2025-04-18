@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox,
+from tkinter import ttk, messagebox
 from ttkthemes import ThemedTk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -7,13 +7,17 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from algos import detect_cycle, dijkstra, reconstruct_path, create_graph, calculate_cost_strategies
 
-def bind_mouse_wheel_recursive(widget, command):
+# --- Fonctions de navigation ---
+
+# configuration du scroll pour les widgets
+def gestionnaire_scroll(widget, command):
     widget.bind("<MouseWheel>", command, add='+')
     widget.bind("<Button-4>", command, add='+')
     widget.bind("<Button-5>", command, add='+')
     for child in widget.winfo_children():
-        bind_mouse_wheel_recursive(child, command)
+        gestionnaire_scroll(child, command)
 
+#création des frames scrollables
 def create_scrollable_frame(parent):
     container = ttk.Frame(parent)
     canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0)
@@ -54,8 +58,10 @@ def create_scrollable_frame(parent):
 
     return scrollable_frame, canvas
 
+# --- Classe principale ---
 
 class CostGraph:
+    #initialisation de la fenetre principale
     def __init__(self, root):
         self.root = root
         self.root.title("CostGraph - Optimisation des Coûts d'Approvisionnement")
@@ -73,8 +79,9 @@ class CostGraph:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True)
         self.create_tabs()
-        self.show_step1()
+        self.afficher_etape1()
 
+    # les onglets
     def create_tabs(self):
         self.tab_config = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_config, text="Configuration")
@@ -86,107 +93,107 @@ class CostGraph:
         self.frame_step1_content = None
         self.frame_step2_content = None
 
-    def clear_config_tab(self):
+    # raccourcis pour vider les frames
+    def vider_config_tab(self):
         for widget in self.tab_config.winfo_children():
             widget.destroy()
         self.frame_step1_content = None
         self.frame_step2_content = None
 
-    def clear_results_scrollable_frame(self):
+    def vider_resultats_tab(self):
         if hasattr(self, 'scrollable_results_frame') and self.scrollable_results_frame:
              for widget in self.scrollable_results_frame.winfo_children():
                  widget.destroy()
 
-    def show_step1(self):
-        self.clear_config_tab()
-        self.frame_step1_content = ttk.Frame(self.tab_config)
-        self.frame_step1_content.pack(expand=True)
+    # --- elements des etapes 1 et 2 (titre, boutons, input fields de texte...) ---
+    def setup_etape(self, title, subtitle, widgets_callback):
+        self.vider_config_tab()
+        frame_content = ttk.Frame(self.tab_config)
+        frame_content.pack(expand=True)
 
-        center_wrapper = ttk.Frame(self.frame_step1_content)
+        center_wrapper = ttk.Frame(frame_content)
         center_wrapper.pack(expand=True)
 
-        app_title_label = ttk.Label(center_wrapper, text="CostGraph", font=("Helvetica", 16, "bold"))
-        app_title_label.pack(pady=(0, 5)) 
-        app_subtitle_label = ttk.Label(center_wrapper, text="Optimisation des Coûts d'Approvisionnement", font=("Helvetica", 10))
-        app_subtitle_label.pack(pady=(0, 15))
+        ttk.Label(center_wrapper, text="CostGraph", font=("Helvetica", 16, "bold")).pack(pady=(0, 5))
+        ttk.Label(center_wrapper, text=subtitle, font=("Helvetica", 10)).pack(pady=(0, 15))
 
         title_frame = ttk.Frame(center_wrapper)
-        title_frame.pack(pady=10) 
-        ttk.Label(title_frame, text="Étape 1: Paramètres généraux", font=("Helvetica", 12, "bold")).pack()
+        title_frame.pack(pady=10)
+        ttk.Label(title_frame, text=title, font=("Helvetica", 12, "bold")).pack()
 
-        params_frame = ttk.Frame(center_wrapper)
-        params_frame.pack(pady=20)
+        widgets_callback(center_wrapper)
 
-        ttk.Label(params_frame, text="Nombre de mois:").grid(row=0, column=0, padx=5, pady=10, sticky=tk.W)
-        nb_mois_spinbox = ttk.Spinbox(params_frame, from_=1, to=120, increment=1, textvariable=self.nb_mois, width=8)
-        nb_mois_spinbox.grid(row=0, column=1, padx=5, pady=10)
+    def afficher_etape1(self):
+        def widgets(center_wrapper):
+            params_frame = ttk.Frame(center_wrapper)
+            params_frame.pack(pady=20)
 
-        ttk.Label(params_frame, text="Frais fixes d'approvisionnement (€):").grid(row=1, column=0, padx=5, pady=10, sticky=tk.W)
-        ttk.Entry(params_frame, textvariable=self.frais_approvisionnement, width=10).grid(row=1, column=1, padx=5, pady=10)
+            ttk.Label(params_frame, text="Nombre de mois:").grid(row=0, column=0, padx=5, pady=10, sticky=tk.W)
+            nb_mois_spinbox = ttk.Spinbox(params_frame, from_=1, to=120, increment=1, textvariable=self.nb_mois, width=8)
+            nb_mois_spinbox.grid(row=0, column=1, padx=5, pady=10)
 
-        ttk.Label(params_frame, text="Coût de stockage par unité par mois (€):").grid(row=2, column=0, padx=5, pady=10, sticky=tk.W)
-        cout_stockage_spinbox = ttk.Spinbox(params_frame, from_=0.0, to=1000.0, increment=1.0, textvariable=self.cout_stockage, width=8, format="%.2f")
-        cout_stockage_spinbox.grid(row=2, column=1, padx=5, pady=10)
+            ttk.Label(params_frame, text="Frais fixes d'approvisionnement (€):").grid(row=1, column=0, padx=5, pady=10, sticky=tk.W)
+            ttk.Entry(params_frame, textvariable=self.frais_approvisionnement, width=10).grid(row=1, column=1, padx=5, pady=10)
 
-        button_frame = ttk.Frame(center_wrapper)
-        button_frame.pack(pady=20)
-        ttk.Button(button_frame, text="Suivant", command=self.show_step2).pack()
+            ttk.Label(params_frame, text="Coût de stockage par unité par mois (€):").grid(row=2, column=0, padx=5, pady=10, sticky=tk.W)
+            cout_stockage_spinbox = ttk.Spinbox(params_frame, from_=0.0, to=1000.0, increment=1.0, textvariable=self.cout_stockage, width=8, format="%.2f")
+            cout_stockage_spinbox.grid(row=2, column=1, padx=5, pady=10)
 
+            button_frame = ttk.Frame(center_wrapper)
+            button_frame.pack(pady=20)
+            ttk.Button(button_frame, text="Suivant", command=self.afficher_etape2).pack()
 
-    def show_step2(self):
-        self.clear_config_tab()
-        self.frame_step2_content = ttk.Frame(self.tab_config)
-        self.frame_step2_content.pack(expand=True)
+        self.setup_etape(
+            title="Étape 1: Paramètres généraux",
+            subtitle="Optimisation des Coûts d'Approvisionnement",
+            widgets_callback=widgets
+        )
 
+    def afficher_etape2(self):
+        def widgets(center_wrapper):
+            installations_outer_frame = ttk.Frame(center_wrapper)
+            installations_outer_frame.pack(pady=10)
+            installations_frame = ttk.Frame(installations_outer_frame)
+            installations_frame.pack()
 
-        center_wrapper = ttk.Frame(self.frame_step2_content)
-        center_wrapper.pack(expand=True) 
+            self.installation_entries = []
 
-        app_title_label = ttk.Label(center_wrapper, text="CostGraph", font=("Helvetica", 16, "bold"))
-        app_title_label.pack(pady=(0, 5))
-        app_subtitle_label = ttk.Label(center_wrapper, text="Optimisation des Coûts d'Approvisionnement", font=("Helvetica", 10))
-        app_subtitle_label.pack(pady=(0, 15))
+            nb_mois = self.nb_mois.get()
+            if not isinstance(nb_mois, int) or nb_mois <= 0:
+                messagebox.showerror("Erreur", "Le nombre de mois doit être un entier positif.")
+                self.nb_mois.set(6)
+                nb_mois = 6
 
-        title_frame = ttk.Frame(center_wrapper)
-        title_frame.pack(pady=10) 
-        ttk.Label(title_frame, text="Étape 2: Besoins mensuels (Installations)", font=("Helvetica", 12, "bold")).pack()
+            if nb_mois > 48:
+                messagebox.showwarning("Attention", f"Nombre de mois ({nb_mois}) élevé. L'interface et l'analyse peuvent être longues.")
 
-        installations_outer_frame = ttk.Frame(center_wrapper)
-        installations_outer_frame.pack(pady=10)
-        installations_frame = ttk.Frame(installations_outer_frame)
-        installations_frame.pack()
+            # Valeurs par défaut
+            default_values = [200, 200, 300, 700, 1000, 200] * ((nb_mois // 6) + 1)
 
-        self.installation_entries = []
+            cols = 3
+            for i in range(nb_mois):
+                row = i // cols
+                col = i % cols
+                frame = ttk.Frame(installations_frame)
+                frame.grid(row=row, column=col, padx=15, pady=10, sticky=tk.W)
+                ttk.Label(frame, text=f"Mois {i+1}:").pack(side=tk.LEFT, padx=(0, 5))
+                entry = ttk.Entry(frame, width=8)
+                entry.pack(side=tk.LEFT)
+                entry.insert(0, str(default_values[i] if i < len(default_values) else 200))
+                self.installation_entries.append(entry)
 
-        nb_mois = self.nb_mois.get()
-        if not isinstance(nb_mois, int) or nb_mois <= 0:
-             messagebox.showerror("Erreur", "Le nombre de mois doit être un entier positif.")
-             self.nb_mois.set(6)
-             nb_mois = 6
+            button_frame = ttk.Frame(center_wrapper)
+            button_frame.pack(pady=20)
+            center_buttons_subframe = ttk.Frame(button_frame)
+            center_buttons_subframe.pack(anchor="center")
+            ttk.Button(center_buttons_subframe, text="Retour", command=self.afficher_etape1).pack(side=tk.LEFT, padx=10)
+            ttk.Button(center_buttons_subframe, text="Lancer l'analyse", command=self.lancer_analyse).pack(side=tk.RIGHT, padx=10)
 
-        if nb_mois > 48:
-             messagebox.showwarning("Attention", f"Nombre de mois ({nb_mois}) élevé. L'interface et l'analyse peuvent être longues.")
-
-        default_values = [200, 200, 300, 700, 1000, 200] * ( (nb_mois // 6) + 1)
-
-        cols = 3
-        for i in range(nb_mois):
-            row = i // cols
-            col = i % cols
-            frame = ttk.Frame(installations_frame)
-            frame.grid(row=row, column=col, padx=15, pady=10, sticky=tk.W)
-            ttk.Label(frame, text=f"Mois {i+1}:").pack(side=tk.LEFT, padx=(0, 5))
-            entry = ttk.Entry(frame, width=8)
-            entry.pack(side=tk.LEFT)
-            entry.insert(0, str(default_values[i] if i < len(default_values) else 200))
-            self.installation_entries.append(entry)
-
-        button_frame = ttk.Frame(center_wrapper)
-        button_frame.pack(pady=20)
-        center_buttons_subframe = ttk.Frame(button_frame)
-        center_buttons_subframe.pack(anchor="center")
-        ttk.Button(center_buttons_subframe, text="Retour", command=self.show_step1).pack(side=tk.LEFT, padx=10)
-        ttk.Button(center_buttons_subframe, text="Lancer l'analyse", command=self.run_analysis).pack(side=tk.RIGHT, padx=10)
+        self.setup_etape(
+            title="Étape 2: Besoins mensuels d'installations",
+            subtitle="Optimisation des Coûts d'Approvisionnement",
+            widgets_callback=widgets
+        )
 
     def get_installations(self):
         installations = []
@@ -203,7 +210,8 @@ class CostGraph:
         self.installations = installations
         return self.installations
 
-    def run_analysis(self):
+    # --- l'analyse est lancée ici après verif des inputs ---
+    def lancer_analyse(self):
         if self.get_installations() is None:
              self.notebook.select(0)
              return
@@ -213,46 +221,45 @@ class CostGraph:
         if not isinstance(frais_approvisionnement, (int, float)) or frais_approvisionnement < 0:
              messagebox.showerror("Erreur", "Les frais d'approvisionnement doivent être un nombre positif ou nul.")
              self.notebook.select(0)
-             self.show_step1()
+             self.afficher_etape1()
              return
         if not isinstance(cout_stockage, (int, float)) or cout_stockage < 0:
              messagebox.showerror("Erreur", "Le coût de stockage doit être un nombre positif ou nul.")
              self.notebook.select(0)
-             self.show_step1()
+             self.afficher_etape1()
              return
-
-        print("Running analysis...")
+        
+        # logs pour le debug
+        print("Analyse en cours...")
         print(f"Installations: {self.installations}")
         print(f"Frais Appro: {frais_approvisionnement}, Coût Stockage: {cout_stockage}")
 
+        # utilisation des fonctions d'algo.py
         G, n_months = create_graph(self.installations, frais_approvisionnement, cout_stockage)
-        print(f"Graph created with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
-
+        
         if detect_cycle(G):
             messagebox.showerror("Erreur d'algorithme", "Le graphe généré contient des cycles.")
             return
 
         distances, predecessors = dijkstra(G, 0, n_months)
-        print(f"Dijkstra run. Cost to end node {n_months}: {distances.get(n_months, 'Not Reachable')}")
-
+        
         if n_months not in distances or distances[n_months] == float('inf'):
             messagebox.showerror("Erreur d'algorithme", "Aucun chemin valide trouvé du début à la fin (coût infini).")
-            print("Distances:", distances)
             return
 
         path = reconstruct_path(predecessors, 0, n_months)
         cout_optimal = distances[n_months]
-        print(f"Optimal path found: {path} with cost {cout_optimal:.2f}")
+        print(f"Chemin optimal trouvé: {path} Coût : {cout_optimal:.2f}")
 
         autres_couts = calculate_cost_strategies(self.installations, frais_approvisionnement, cout_stockage)
         print(f"Comparison costs: {autres_couts}")
 
-        self.display_results(G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months)
+        self.afficher_resultats(G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months)
         self.notebook.select(1)
 
-
-    def display_results(self, G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months):
-        self.clear_results_scrollable_frame()
+    # affichage des résultats
+    def afficher_resultats(self, G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months):
+        self.vider_resultats_tab()
         main_frame = ttk.Frame(self.scrollable_results_frame)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -332,16 +339,16 @@ class CostGraph:
         text_optimal.configure(state='disabled')
         text_comparison.configure(state='disabled')
 
-        self.create_visualizations(main_frame, n_months, predecessors, frais_approvisionnement, cout_stockage)
+        self.afficher_graphiques(main_frame, n_months, predecessors, frais_approvisionnement, cout_stockage)
 
         ttk.Button(main_frame, text="Retour à la configuration",
                   command=lambda: self.notebook.select(0)).pack(pady=20)
 
         if hasattr(self.scrollable_results_frame, '_scroll_command'):
-            bind_mouse_wheel_recursive(main_frame, self.scrollable_results_frame._scroll_command)
+            gestionnaire_scroll(main_frame, self.scrollable_results_frame._scroll_command)
 
-
-    def create_visualizations(self, parent, n_months, predecessors, frais_approvisionnement, cout_stockage):
+# --- Visualisation des résultats de deux façons : évoltion des coûts par mois par strat et achats optimaux à faire ---
+    def afficher_graphiques(self, parent, n_months, predecessors, frais_approvisionnement, cout_stockage):
         chart_container_frame = ttk.LabelFrame(parent, text="Graphiques")
         chart_container_frame.pack(fill=tk.BOTH, expand=True, pady=10, padx=5)
 
@@ -351,17 +358,21 @@ class CostGraph:
 
         mois = list(range(n_months + 1))
 
+        # --- calculs des couts pour les trois stratégies ---
+
+        # en une fois
         cout_une_fois = [0.0] * (n_months + 1)
-        _total_cost_user_logic = frais_approvisionnement + sum(self.installations)
+        cout_total = frais_approvisionnement + sum(self.installations)
         cout_une_fois[0] = 0.0
         if n_months > 0 :
              stock = sum(self.installations)
              for i in range(n_months):
                  stock -= self.installations[i]
                  cout_stockage_mois = stock * cout_stockage
-                 _total_cost_user_logic += cout_stockage_mois
-                 cout_une_fois[i+1] = _total_cost_user_logic
+                 cout_total += cout_stockage_mois
+                 cout_une_fois[i+1] = cout_total
 
+        # mensuel
         cout_mensuel = [0.0] * (n_months + 1)
         stock = 0.0
         total_cost = 0.0
@@ -375,37 +386,40 @@ class CostGraph:
             total_cost += cout_stockage_mois
             cout_mensuel[i+1] = total_cost
 
-        path_optimal = reconstruct_path(predecessors, 0, n_months)
-        cout_optimale = [0.0] * (n_months + 1)
-        achats_optimal = [0] * n_months
-        cout_optimale[0] = 0.0
+        # optimal obtenu par l'algo de Dijkstra
+        chemin_optimal = reconstruct_path(predecessors, 0, n_months)
+        cout_optimal = [0.0] * (n_months + 1)
+        achats_optimaux = [0] * n_months
+        cout_optimal[0] = 0.0
 
-        current_cost = 0.0
+        cout_actuel = 0.0
         stock = 0.0
-        next_supply_index = 1
+        id_prochain_appro = 1
 
         for i in range(n_months):
-            quantite_achetee = 0
-            if next_supply_index < len(path_optimal) and i == path_optimal[next_supply_index-1]:
-                mois_debut = path_optimal[next_supply_index-1]
-                mois_fin = path_optimal[next_supply_index]
-                achats_optimal[i] = sum(self.installations[mois_debut:mois_fin])
-                quantite_achetee = achats_optimal[i]
-                current_cost += frais_approvisionnement + achats_optimal[i]
-                stock += achats_optimal[i]
-                next_supply_index += 1
+            # vérifie si le mois actuel (i) correspond à un point d'approvisionnement dans le chemin optimal
+            if id_prochain_appro < len(chemin_optimal) and i == chemin_optimal[id_prochain_appro-1]:
+                # si un approvisionnement est necessaire, on détermine la période couverte par cet approvisionnement
+                mois_debut = chemin_optimal[id_prochain_appro-1]
+                mois_fin = chemin_optimal[id_prochain_appro]
+                achats_optimaux[i] = sum(self.installations[mois_debut:mois_fin])
+                # la quantite qu'il faut acheter est la somme des besoins entre ces deux mois
+                cout_actuel += frais_approvisionnement + achats_optimaux[i]
+                stock += achats_optimaux[i]
+                id_prochain_appro += 1
 
             stock -= self.installations[i]
 
             cout_stockage_mois = stock * cout_stockage
-            current_cost += cout_stockage_mois
+            cout_actuel += cout_stockage_mois
+            # Le cout total est cumulé jusqu'à la fin du mois actuel est enregistré ici
+            cout_optimal[i+1] = cout_actuel
 
-            cout_optimale[i+1] = current_cost
-
+        # --- config des graphiques --
 
         ax1.plot(mois, cout_mensuel, label="Achats mensuels", color='#c9c1bc', marker='o', linestyle=':')
         ax1.plot(mois, cout_une_fois, label="Achat unique (début)", color='#c9c1bc', marker='x', linestyle='--')
-        ax1.plot(mois, cout_optimale, label="Stratégie Optimale", color='#ef7645', marker='s', linewidth=2)
+        ax1.plot(mois, cout_optimal, label="Stratégie Optimale", color='#ef7645', marker='s', linewidth=2)
 
         ax1.set_xlabel('Fin du Mois (Noeud)')
         ax1.set_ylabel('Coût total cumulé (€)')
@@ -416,14 +430,14 @@ class CostGraph:
         ax1.set_xticklabels([str(m) for m in mois])
 
         mois_labels_bar = [f"Mois {i+1}" for i in range(n_months)]
-        bars = ax2.bar(mois_labels_bar, achats_optimal, color='#ef7645', label='Quantité achetée')
+        bars = ax2.bar(mois_labels_bar, achats_optimaux, color='#ef7645', label='Quantité achetée')
         ax2.set_xlabel('Mois de commande')
         ax2.set_ylabel('Unités commandées')
         ax2.set_title('Stratégie Optimale: Commandes par mois')
         ax2.grid(True, axis='y', linestyle='--', alpha=0.6)
 
         ax2.bar_label(bars, fmt='%g', padding=3, fontsize=9,
-                      labels=[f'{v}' if v > 0 else '' for v in achats_optimal])
+                      labels=[f'{v}' if v > 0 else '' for v in achats_optimaux])
 
         ax2b = ax2.twinx()
         ax2b.plot(mois_labels_bar, self.installations, color='grey', linestyle=':', marker='.', label='Besoins (Installations)')
