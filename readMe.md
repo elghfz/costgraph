@@ -25,8 +25,7 @@ ___
 ___
 
 ## Configuration de l'environnement
-- **Dépendances** :
-    - Python 3.x
+
 - **Bibliothèques** :
     - networkx : Manipulation des graphes.
     - matplotlib : Visualisation des graphiques.
