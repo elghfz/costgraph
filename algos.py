@@ -11,16 +11,16 @@ def load_data():
     return installations, frais_approvisionnement, cout_stockage
 
 # --- initialisation graphe ---
-def create_graph(installations, frais_approvisionnement, cout_stockage):
+def init_graphe(installations, frais_approvisionnement, cout_stockage):
     # grace a la bibliotheque networkx
     G = nx.DiGraph()
     # ajouter noeud par mois
-    n_months = len(installations) 
-    for i in range(n_months + 1):
-        G.add_node(i)
+    n_mois = len(installations) 
+    for i in range(n_mois + 1):
+        G.add_noeud(i)
     # arcs avec les couts d'approvisionnement + stockage
-    for i in range(n_months):
-        for j in range(i + 1, n_months + 1):
+    for i in range(n_mois):
+        for j in range(i + 1, n_mois + 1):
             cout = frais_approvisionnement
             cout_cabines = sum(installations[i:j])
             cout_stockage_total = 0
@@ -31,205 +31,202 @@ def create_graph(installations, frais_approvisionnement, cout_stockage):
             cout_total = cout + cout_cabines + cout_stockage_total
             G.add_edge(i, j, weight=cout_total)
     
-    return G, n_months
+    return G, n_mois
 
 # --- détection des cycles  ---
-def detect_cycle(graph):
-    visited = set()  # sommets visités
-    rec_stack = set()  # pile de récursion pour détecter les cycles
+def detect_cycle(graphe):
+    visites = set()  # sommets visités
+    pile = set()  # pile de récursion pour détecter les cycles
 
-    def dfs(v): #on va definir l'algo dfs vu en cours ici
-        visited.add(v)
-        rec_stack.add(v)
+    def dfs(v): #on va definir l'algo dfs vu en cours ici (comme il est recusrsif)
+        visites.add(v)
+        pile.add(v)
 
-        for neighbor in graph[v]:
-            if neighbor not in visited:
-                if dfs(neighbor):
+        for voisin in graphe[v]:
+            if voisin not in visites:
+                if dfs(voisin):
                     return True
-            elif neighbor in rec_stack:
+            elif voisin in pile:
                 return True  # cycle détecté
 
-        rec_stack.remove(v)
+        pile.remove(v)
         return False
     
     # et on va l'utiliser ici
-    for node in graph:
-        if node not in visited:
-            if dfs(node):
+    for noeud in graphe:
+        if noeud not in visites:
+            if dfs(noeud):
                 return True # si cycle détecté
 
     return False  # sinon
 
 # --- Dijkstra pour trouver le chemin optimal ---
-def dijkstra(graph, start, end):
+def dijkstra(graphe, deb, fin):
     # couts pour tous les sommets
-    min_heap = [(0, start)]  # (coût, sommet)
-    distances = {start: 0}
-    predecessors = {start: None}  # prédécesseurs dans un dictionnaire (pour reconstruire le chemin après)
+    # on utilise un tas binaire minimal pour la gestion des sommets à explorer
+    tas_bin_min = [(0, deb)]  # (coût, sommet)
+    distances = {deb: 0}
+    precedents = {deb: None}  # prédécesseurs dans un dictionnaire (car faudra reconstruire le chemin après)
 
-    while min_heap:
-        current_dist, current_node = heapq.heappop(min_heap)
+    while tas_bin_min:
+        dist_actuelle, noeud_actuel = heapq.heappop(tas_bin_min)
         # arret si on est a la fin
-        if current_node == end:
+        if noeud_actuel == fin:
             break
 
         # Si sommet déjà exploré avec coût plus bas on le saute
-        if current_dist > distances.get(current_node, float('inf')):
+        if dist_actuelle > distances.get(noeud_actuel, float('inf')):
             continue
         
         # voir les voisins
-        for neighbor in graph[current_node]:
-            edge_weight = graph[current_node][neighbor]['weight']
-            distance = current_dist + edge_weight
-            if distance < distances.get(neighbor, float('inf')):
-                distances[neighbor] = distance
-                predecessors[neighbor] = current_node  # suivre ce chemin
-                heapq.heappush(min_heap, (distance, neighbor))
+        for voisin in graphe[noeud_actuel]:
+            cout_arete = graphe[noeud_actuel][voisin]['weight']
+            distance = dist_actuelle + cout_arete
+            if distance < distances.get(voisin, float('inf')):
+                distances[voisin] = distance
+                precedents[voisin] = noeud_actuel  # suivre ce chemin
+                heapq.heappush(tas_bin_min, (distance, voisin))
 
-    return distances, predecessors
+    return distances, precedents
 
 
 # --- reconstruction du chemin optimal ---
-def reconstruct_path(predecessors, start, end):
-    if end not in predecessors and end != start:
+def reconstruct_chemin_graphe(precedents, deb, fin):
+    if fin not in precedents and fin != deb:
         return []  # pas de chemin trouvé
         
     path = []
-    current_node = end
-    while current_node is not None:
-        path.append(current_node)
-        current_node = predecessors.get(current_node)
+    noeud_actuel = fin
+    while noeud_actuel is not None:
+        path.append(noeud_actuel)
+        noeud_actuel = precedents.get(noeud_actuel)
     path.reverse()  # on inverse le chemin pour qu'il soit bien du début à la fin
     return path
 
 # --- Calcul des coûts pour les différentes stratégies ---
-def calculate_cost_strategies(installations, frais_approvisionnement, cout_stockage):
-    n_months = len(installations)
-    total_cabines = sum(installations)
-    
-    # strat 1 : tout au mois 1 (directeur des achats)
-    cout_achat_directeur_achats = frais_approvisionnement + total_cabines
 
-    # coût de stockage
-    cout_stockage_directeur_achats = 0
-    cabines_restantes = total_cabines
-    for i in range(n_months):
-        cabines_restantes -= installations[i]
-        cout_stockage_directeur_achats += cabines_restantes * cout_stockage
-    
-    total_directeur_achats = cout_achat_directeur_achats + cout_stockage_directeur_achats
-    
-    # strat 2 : acheter chaque mois (directeur financier)
-    cout_directeur_financier = 0
-    for i in range(n_months):
-        cout_directeur_financier += frais_approvisionnement + installations[i]
-    # et donc pas de frais de stockage avec sa methode
+# fonction auxiliere définie ici car ce calcul est refait ailleurs 
+# (fonction et non variables globales car appelée aussi d'interface.py)
+# donne la liste de tous les couts suivant le nb de mois
+def calcul_couts_de_base(installations, frais_approvisionnement, cout_stockage):
+    n_mois = len(installations)
+    total_cabines = sum(installations)
+
+    # strat 1 : tout au début
+    cout_une_fois = [0] * (n_mois + 1)
+    cout_total = frais_approvisionnement + total_cabines
+    cout_une_fois[1] = cout_total
+    stock = total_cabines
+    for i in range(n_mois):
+        stock -= installations[i]
+        cout_total += stock * cout_stockage
+        cout_une_fois[i + 1] = cout_total
+
+    # strat 2 : achats mensuels
+    cout_mensuel = [0] * (n_mois + 1)
+    stock = 0
+    cout_total = 0
+    for i in range(n_mois):
+        cout_total += frais_approvisionnement + installations[i]
+        # installation dans le mois
+        stock += installations[i] - installations[i]
+        cout_total += stock * cout_stockage
+        cout_mensuel[i + 1] = cout_total
+
+    return cout_une_fois, cout_mensuel
+
+# --- fonction principale ---
+# donne uniquement les couts finaux
+def calcul_couts_strategies(installations, frais_approvisionnement, cout_stockage):
+    cout_une_fois, cout_mensuel = calcul_couts_de_base( installations, frais_approvisionnement, cout_stockage)
+
+    total_directeur_achats = cout_une_fois[-1]  # achat au mois 1
+    cout_directeur_financier = cout_mensuel[-1]  # achat chaque mois
 
     return {
         "directeur_achats": total_directeur_achats,
-        "directeur_financier": cout_directeur_financier
+        "directeur_financier": cout_directeur_financier,
     }
 
+
 # --- Visualisation des résultats de deux façons : évoltion des coûts par mois par strat et achats optimaux à faire ---
-def visualize_graph(installations, frais_approvisionnement, cout_stockage, predecessors, n_months):
-    try:
-        mois = list(range(n_months + 1))  # de 0 à 6 mois donc 7 éléments
-        
-        # strat 1 : tout en une fois
-        cout_une_fois = [0] * (n_months + 1)
-        total_cost = frais_approvisionnement + sum(installations)
-        cout_une_fois[1] = total_cost  # Commande au mois 1
-        
-        stock = sum(installations)
-        for i in range(n_months):
-            stock -= installations[i]
-            cout_stockage_mois = stock * cout_stockage
-            total_cost += cout_stockage_mois
-            cout_une_fois[i+1] = total_cost
 
-        # strat 2 : achats mensuels
-        cout_mensuel = [0] * (n_months + 1)
-        stock = 0
-        total_cost = 0
-        
-        for i in range(n_months):
-            # commande au début du mois i+1 (nœud i dans le graphe)
-            total_cost += frais_approvisionnement + installations[i]
-            stock += installations[i]
-            
-            # installation pendant ce mois là
-            stock -= installations[i]
-            
-            # stockage à la fin du mois (pour le mois suivant)
-            cout_stockage_mois = stock * cout_stockage
-            total_cost += cout_stockage_mois
-            
-            cout_mensuel[i+1] = total_cost
+def tracer_graphique(installations, frais_approvisionnement, cout_stockage, precedents, n_mois):
+    path_optimal = reconstruct_chemin_graphe(precedents, 0, n_mois)
+    mois = list(range(n_mois + 1))  # de 0 à 6 mois donc 7 éléments
 
-        # strat 3 : optimale, obtenue par l'algo
-        path_optimal = reconstruct_path(predecessors, 0, n_months)
-        cout_optimale = [0] * (n_months + 1)
-        achats_optimal = [0] * n_months  # pour le graphique des barres
-        
-        current_cost = 0
-        stock = 0
-        next_supply_index = 1  # index dans path_optimal
-        
-        for i in range(n_months):
-            # vérifier si c'est un mois d'approvisionnement
-            if next_supply_index < len(path_optimal) and i == path_optimal[next_supply_index-1]:
-                mois_debut = path_optimal[next_supply_index-1]
-                mois_fin = path_optimal[next_supply_index]
-                
-                # quantité achetée
-                achats_optimal[i] = sum(installations[mois_debut:mois_fin])
-                
-                # calculer le coût de l'approvisionnement
-                current_cost += frais_approvisionnement + achats_optimal[i]
-                stock += achats_optimal[i]
-                next_supply_index += 1
-            
-            # installations du mois
-            stock -= installations[i]
-            
-            # stockage des cabines restantes
-            cout_stockage_mois = stock * cout_stockage
-            current_cost += cout_stockage_mois
-            
-            cout_optimale[i+1] = current_cost
+    # --- couts des deux stratégies de base ---
+    cout_une_fois, cout_mensuel = calcul_couts_de_base(
+        installations, frais_approvisionnement, cout_stockage
+    )
 
-        # création des graphiques
-        fig, ax = plt.subplots(2, 1, figsize=(12, 12))
+    # strat 3 : optimale, obtenue par l'algo
+    cout_optimale = [0] * (n_mois + 1)
+    achats_optimal = [0] * n_mois  # pour le graphique des barres
+    
+    cout_actuel = 0
+    stock = 0
+    next_supply_index = 1  # index dans path_optimal
+    
+    for i in range(n_mois):
+        # vérifier si c'est un mois d'approvisionnement
+        if next_supply_index < len(path_optimal) and i == path_optimal[next_supply_index-1]:
+            mois_debut = path_optimal[next_supply_index-1]
+            mois_fin = path_optimal[next_supply_index]
+            
+            # quantité achetée
+            achats_optimal[i] = sum(installations[mois_debut:mois_fin])
+            
+            # calculer le coût de l'approvisionnement
+            cout_actuel += frais_approvisionnement + achats_optimal[i]
+            stock += achats_optimal[i]
+            next_supply_index += 1
         
-        # graphique 1: comparaison des évolutions des coûts
-        ax[0].plot(mois, cout_mensuel, label="Achats mensuels", color='blue', marker='o')
-        ax[0].plot(mois, cout_une_fois, label="Achat en une fois", color='red', linestyle='--', marker='x')
-        ax[0].plot(mois, cout_optimale, label="Méthode optimale", color='green', marker='s')
+        # installations du mois
+        stock -= installations[i]
         
-        ax[0].set_xlabel('Mois')
-        ax[0].set_ylabel('Coût total (€)')
-        ax[0].set_title("Comparaison des stratégies d'approvisionnement")
-        ax[0].legend()
-        ax[0].grid(True)
+        # stockage des cabines restantes
+        cout_stockage_mois = stock * cout_stockage
+        cout_actuel += cout_stockage_mois
         
-        # graphique 2: achats optimaux (distribués sur les 6 mois)
-        mois_labels = [f"Mois {i+1}" for i in range(n_months)]
-        ax[1].bar(mois_labels, achats_optimal, color='lightgreen')
-        ax[1].set_xlabel('Mois')
-        ax[1].set_ylabel('Nombre de cabines')
-        ax[1].set_title('Stratégie optimale: Quantités commandées par mois')
-        for i, v in enumerate(achats_optimal):
-            if v > 0:
-                ax[1].text(i, v + 20, str(v), ha='center', va='bottom', fontsize=10)
-        
-        plt.tight_layout()
-        plt.savefig('comparaison_strategies.png')
-        plt.show()
-        
-        return True
-    except Exception as e:
-        print(f"Erreur lors de la génération des graphiques: {e}")
-        return False
+        cout_optimale[i+1] = cout_actuel
+
+    # création des graphiques
+    fig, ax = plt.subplots(2, 1, figsize=(12, 12))
+    
+    # graphique 1: comparaison des évolutions des coûts
+    ax[0].plot(mois, cout_mensuel, label="Achats mensuels", color='blue', marker='o')
+    ax[0].plot(mois, cout_une_fois, label="Achat en une fois", color='red', linestyle='--', marker='x')
+    ax[0].plot(mois, cout_optimale, label="Méthode optimale", color='green', marker='s')
+    
+    ax[0].set_xlabel('Mois')
+    ax[0].set_ylabel('Coût total (€)')
+    ax[0].set_title("Comparaison des stratégies d'approvisionnement")
+    ax[0].legend()
+    ax[0].grid(True)
+    
+    # graphique 2: achats optimaux (distribués sur les 6 mois)
+    mois_labels = [f"Mois {i+1}" for i in range(n_mois)]
+    ax[1].bar(mois_labels, achats_optimal, color='lightgreen')
+    ax[1].set_xlabel('Mois')
+    ax[1].set_ylabel('Nombre de cabines')
+    ax[1].set_title('Stratégie optimale: Quantités commandées par mois')
+    for i, v in enumerate(achats_optimal):
+        if v > 0:
+            ax[1].text(i, v + 20, str(v), ha='center', va='bottom', fontsize=10)
+    
+    plt.tight_layout()
+    return fig, ax     # pour modifier ensuite dans l'interface     
+             
+
+
+
+def visualize_graph(installations, frais_approvisionnement, cout_stockage, precedents, n_mois):
+    fig, _ = tracer_graphique(installations, frais_approvisionnement, cout_stockage, precedents, n_mois)
+    fig.savefig('comparaison_strategies.png')
+    plt.show()
+    return True
+
 
 
 def tests_algos():
@@ -265,21 +262,21 @@ def tests_algos():
     else:
         print("Fonction dijkstra incorrectement implémentée")
 
-    print("\nTest de la fonction reconstruct_path:")
-    path = reconstruct_path(_, 0, 4)
+    print("\nTest de la fonction reconstruct_chemin_graphe:")
+    path = reconstruct_chemin_graphe(_, 0, 4)
     print(f"Chemin optimal : {path}")
     expected_path = [0, 2, 1, 3, 4]
     if path == expected_path:
-        print("Fonction reconstruct_path bien implémentée")
+        print("Fonction reconstruct_chemin_graphe bien implémentée")
     else:
-        print("Fonction reconstruct_path incorrectement implémentée")
+        print("Fonction reconstruct_chemin_graphe incorrectement implémentée")
 
 
 # --- Main: Fonction principale ---
 def main():
     tests_algos()
 
-    print("\n\n=== Système d'optimisation des approvisionnements de cabines téléphoniques ===\n")
+    print("\n\n=== CostGraph : Système d'optimisation des approvisionnements de cabines téléphoniques ===\n")
     
     installations, frais_approvisionnement, cout_stockage = load_data()
     print(f"Données chargées :")
@@ -288,7 +285,7 @@ def main():
     print(f"- Coût de stockage par cabine par mois: {cout_stockage} €\n")
     
     # Création du graphe
-    G, n_months = create_graph(installations, frais_approvisionnement, cout_stockage)
+    G, n_mois = init_graphe(installations, frais_approvisionnement, cout_stockage)
     
     # Vérification d'acyclicité
     if detect_cycle(G):
@@ -298,17 +295,17 @@ def main():
         print("Vérification d'acyclicité : OK - Le graphe ne contient pas de cycles.\n")
     
     # Recherche du plus court chemin (stratégie optimale)
-    distances, predecessors = dijkstra(G, 0, n_months)
-    if n_months not in distances:
+    distances, precedents = dijkstra(G, 0, n_mois)
+    if n_mois not in distances:
         print("ERREUR: Aucun chemin trouvé du mois 0 au mois final.")
         return
     
     # Reconstruire le chemin optimal
-    path = reconstruct_path(predecessors, 0, n_months)
-    cout_optimal = distances[n_months]
+    path = reconstruct_chemin_graphe(precedents, 0, n_mois)
+    cout_optimal = distances[n_mois]
     
     # Calculer les coûts des autres stratégies
-    autres_couts = calculate_cost_strategies(installations, frais_approvisionnement, cout_stockage)
+    autres_couts = calcul_couts_strategies(installations, frais_approvisionnement, cout_stockage)
     
     # Afficher les résultats
     print("=== Résultats de l'analyse ===\n")
@@ -335,7 +332,7 @@ def main():
     print(f"   Par rapport à la stratégie du directeur des achats: {economie_vs_achats:.2f} € ({economie_vs_achats/autres_couts['directeur_achats']*100:.2f}%)")
     print(f"   Par rapport à la stratégie du directeur financier: {economie_vs_financier:.2f} € ({economie_vs_financier/autres_couts['directeur_financier']*100:.2f}%)")
     
-    visualize_graph(installations, frais_approvisionnement, cout_stockage, predecessors, n_months)
+    visualize_graph(installations, frais_approvisionnement, cout_stockage, precedents, n_mois)
     
     # résumé pour les directeurs (il faut montrer ce qui peut etre économisé grâce à la strat optimale)
     print("\n=== Résumé pour la présentation aux directeurs ===\n")

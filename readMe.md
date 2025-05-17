@@ -16,7 +16,7 @@ ___
 - Création d'un graphe orienté pondéré représentant les coûts d'approvisionnement et de stockage.
 - Détection de cycles dans le graphe pour garantir sa validité.
 - Utilisation de l'algorithme de Dijkstra pour trouver le chemin optimal (stratégie d'approvisionnement minimale).
-- Comparaison des coûts avec des stratégies simples (achat unique et achat mensuel).
+- Comparaison des coûts avec d'autres stratégies : achat unique et achats mensuels.
 
 ### Visualisation des résultats :
 
@@ -41,28 +41,28 @@ pip install matplotlib networkx ttkthemes
 
 ## Structure du Projet
 ### Fichiers principaux
-- interface.py : Contient l'interface utilisateur et la logique principale du programme.
-- algos.py : Implémente les algorithmes de graphes et les calculs de coûts.
-    - Remarque, `algos.py` est préprogrammé avec des données hardcoded issues de l'énoncé du projet, et permet également, si lancé, de générer des graphiques et un rapport de comparaisons
+- interface.py : Contient l'interface utilisateur.
+- algos.py : Contient les algorithmes de graphes et les calculs de coûts (réutilisés ensuite dans `interface.py`).
+    - Remarque, `algos.py` est préprogrammé avec des données hardcoded issues de l'énoncé du projet, et permet également, si lancé, de générer des graphiques et, sur le terminal, un rapport de comparaisons
     - `interface.py` est plus joli :)
 
 ### Algorithmes
-#### a. Création du graphe (create_graph)
+#### a. Création du graphe 
 - Chaque nœud représente un mois.
 - Les arcs entre les nœuds représentent les coûts d'approvisionnement et de stockage pour couvrir les besoins d'une période donnée.
-- Les poids des arcs sont calculés comme suit :
+- Les poids des arcs sont calculés comme la somme de ce qui suit :
     - Coût fixe d'approvisionnement.
     - Coût des installations nécessaires.
     - Coût de stockage des installations non utilisées.
-#### b. Détection de cycles (detect_cycle)
+#### b. Détection de cycles
 - Utilise une recherche en profondeur (DFS) pour détecter les cycles dans le graphe.
-- Garantit que le graphe est un graphe acyclique dirigé (DAG), nécessaire pour l'algorithme de Dijkstra.
-#### c. Algorithme de Dijkstra (dijkstra)
+- Garantit que le graphe est un graphe acyclique dirigé (nécessaire pour l'algorithme de Dijkstra)
+#### c. Algorithme de Dijkstra
 - Trouve le chemin de coût minimal entre le premier mois (nœud 0) et le dernier mois.
 - Retourne les distances minimales et les prédécesseurs pour reconstruire le chemin optimal.
-#### d. Reconstruction du chemin (reconstruct_path)
+#### d. Reconstruction du chemin
 - Reconstruit le chemin optimal à partir des prédécesseurs retournés par Dijkstra.
-#### e. Calcul des coûts des stratégies (calculate_cost_strategies)
+#### e. Calcul des coûts des stratégies
 - Stratégie 1 : Achat unique :
     - Tous les besoins sont achetés au début, avec des coûts de stockage élevés.
 - Stratégie 2 : Achat mensuel :

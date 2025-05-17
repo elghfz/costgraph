@@ -1,11 +1,13 @@
 import tkinter as tk
+from pathlib import Path 
 from tkinter import ttk, messagebox
 from ttkthemes import ThemedTk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from PIL import Image, ImageTk
 
 
-from algos import detect_cycle, dijkstra, reconstruct_path, create_graph, calculate_cost_strategies
+from algos import detect_cycle, dijkstra, reconstruct_chemin_graphe, init_graphe, calcul_couts_strategies, tracer_graphique
 
 # --- Fonctions de navigation ---
 
@@ -68,6 +70,10 @@ class CostGraph:
         self.root.geometry("950x750")
         self.root.minsize(800, 600)
 
+        logo_path = Path(__file__).parent / "logo.png" 
+        self.logo_img = ImageTk.PhotoImage(Image.open(logo_path))
+        self.root.iconphoto(False, self.logo_img)
+
         self.installations = []
         self.frais_approvisionnement = tk.DoubleVar(value=2000)
         self.cout_stockage = tk.DoubleVar(value=2)
@@ -105,7 +111,7 @@ class CostGraph:
              for widget in self.scrollable_results_frame.winfo_children():
                  widget.destroy()
 
-    # --- elements des etapes 1 et 2 (titre, boutons, input fields de texte...) ---
+    # --- elements des etapes 1 et 2 (logo, titre, boutons, input fields de texte...) ---
     def setup_etape(self, title, subtitle, widgets_callback):
         self.vider_config_tab()
         frame_content = ttk.Frame(self.tab_config)
@@ -114,6 +120,8 @@ class CostGraph:
         center_wrapper = ttk.Frame(frame_content)
         center_wrapper.pack(expand=True)
 
+        logo_lbl = ttk.Label(center_wrapper, image=self.logo_img)
+        logo_lbl.pack(pady=(0, 5))
         ttk.Label(center_wrapper, text="CostGraph", font=("Helvetica", 16, "bold")).pack(pady=(0, 5))
         ttk.Label(center_wrapper, text=subtitle, font=("Helvetica", 10)).pack(pady=(0, 15))
 
@@ -232,33 +240,33 @@ class CostGraph:
         # logs pour le debug
         print("Analyse en cours...")
         print(f"Installations: {self.installations}")
-        print(f"Frais Appro: {frais_approvisionnement}, Coût Stockage: {cout_stockage}")
+        print(f"Frais appro: {frais_approvisionnement}, Cout stockage: {cout_stockage}")
 
         # utilisation des fonctions d'algo.py
-        G, n_months = create_graph(self.installations, frais_approvisionnement, cout_stockage)
+        G, n_mois = init_graphe(self.installations, frais_approvisionnement, cout_stockage)
         
         if detect_cycle(G):
             messagebox.showerror("Erreur d'algorithme", "Le graphe généré contient des cycles.")
             return
 
-        distances, predecessors = dijkstra(G, 0, n_months)
+        distances, precedents = dijkstra(G, 0, n_mois)
         
-        if n_months not in distances or distances[n_months] == float('inf'):
-            messagebox.showerror("Erreur d'algorithme", "Aucun chemin valide trouvé du début à la fin (coût infini).")
+        if n_mois not in distances or distances[n_mois] == float('inf'):
+            messagebox.showerror("Erreur d'algorithme", "Aucun chemin valide trouvé du début à la fin ")
             return
 
-        path = reconstruct_path(predecessors, 0, n_months)
-        cout_optimal = distances[n_months]
+        path = reconstruct_chemin_graphe(precedents, 0, n_mois)
+        cout_optimal = distances[n_mois]
         print(f"Chemin optimal trouvé: {path} Coût : {cout_optimal:.2f}")
 
-        autres_couts = calculate_cost_strategies(self.installations, frais_approvisionnement, cout_stockage)
-        print(f"Comparison costs: {autres_couts}")
+        autres_couts = calcul_couts_strategies(self.installations, frais_approvisionnement, cout_stockage)
+        print(f"Comparaison couts: {autres_couts}")
 
-        self.afficher_resultats(G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months)
+        self.afficher_resultats(G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, precedents, n_mois)
         self.notebook.select(1)
 
     # affichage des résultats
-    def afficher_resultats(self, G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, predecessors, n_months):
+    def afficher_resultats(self, G, path, cout_optimal, autres_couts, frais_approvisionnement, cout_stockage, precedents, n_mois):
         self.vider_resultats_tab()
         main_frame = ttk.Frame(self.scrollable_results_frame)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -339,7 +347,7 @@ class CostGraph:
         text_optimal.configure(state='disabled')
         text_comparison.configure(state='disabled')
 
-        self.afficher_graphiques(main_frame, n_months, predecessors, frais_approvisionnement, cout_stockage)
+        self.afficher_graphiques(main_frame, n_mois, precedents, frais_approvisionnement, cout_stockage)
 
         ttk.Button(main_frame, text="Retour à la configuration",
                   command=lambda: self.notebook.select(0)).pack(pady=20)
@@ -348,110 +356,45 @@ class CostGraph:
             gestionnaire_scroll(main_frame, self.scrollable_results_frame._scroll_command)
 
 # --- Visualisation des résultats de deux façons : évoltion des coûts par mois par strat et achats optimaux à faire ---
-    def afficher_graphiques(self, parent, n_months, predecessors, frais_approvisionnement, cout_stockage):
+    def afficher_graphiques(self, parent, n_mois, precedents, frais_approvisionnement, cout_stockage):
         chart_container_frame = ttk.LabelFrame(parent, text="Graphiques")
         chart_container_frame.pack(fill=tk.BOTH, expand=True, pady=10, padx=5)
 
-        fig = Figure(figsize=(8, 9))
-        ax1 = fig.add_subplot(211)
-        ax2 = fig.add_subplot(212)
+        fig, axes = tracer_graphique(
+            self.installations,
+            frais_approvisionnement,
+            cout_stockage,
+            precedents,
+            n_mois
+        )
+        ax1, ax2 = axes  # axes[0] et axes[1]
 
-        mois = list(range(n_months + 1))
+        # --- couleurs cohérentes ---
+        ax1.lines[0].set_color('#c9c1bc')    # achats mensuels
+        ax1.lines[1].set_color('#c9c1bc')    # achat unique
+        ax1.lines[2].set_color('#ef7645')    # stratégie optimale
+        for bar in ax2.containers[0]:
+            bar.set_color('#ef7645')  # colorier la légende aussi
 
-        # --- calculs des couts pour les trois stratégies ---
-
-        # en une fois
-        cout_une_fois = [0.0] * (n_months + 1)
-        cout_total = frais_approvisionnement + sum(self.installations)
-        cout_une_fois[0] = 0.0
-        if n_months > 0 :
-             stock = sum(self.installations)
-             for i in range(n_months):
-                 stock -= self.installations[i]
-                 cout_stockage_mois = stock * cout_stockage
-                 cout_total += cout_stockage_mois
-                 cout_une_fois[i+1] = cout_total
-
-        # mensuel
-        cout_mensuel = [0.0] * (n_months + 1)
-        stock = 0.0
-        total_cost = 0.0
-        cout_mensuel[0] = 0.0
-
-        for i in range(n_months):
-            total_cost += frais_approvisionnement + self.installations[i]
-            stock += self.installations[i]
-            stock -= self.installations[i]
-            cout_stockage_mois = stock * cout_stockage
-            total_cost += cout_stockage_mois
-            cout_mensuel[i+1] = total_cost
-
-        # optimal obtenu par l'algo de Dijkstra
-        chemin_optimal = reconstruct_path(predecessors, 0, n_months)
-        cout_optimal = [0.0] * (n_months + 1)
-        achats_optimaux = [0] * n_months
-        cout_optimal[0] = 0.0
-
-        cout_actuel = 0.0
-        stock = 0.0
-        id_prochain_appro = 1
-
-        for i in range(n_months):
-            # vérifie si le mois actuel (i) correspond à un point d'approvisionnement dans le chemin optimal
-            if id_prochain_appro < len(chemin_optimal) and i == chemin_optimal[id_prochain_appro-1]:
-                # si un approvisionnement est necessaire, on détermine la période couverte par cet approvisionnement
-                mois_debut = chemin_optimal[id_prochain_appro-1]
-                mois_fin = chemin_optimal[id_prochain_appro]
-                achats_optimaux[i] = sum(self.installations[mois_debut:mois_fin])
-                # la quantite qu'il faut acheter est la somme des besoins entre ces deux mois
-                cout_actuel += frais_approvisionnement + achats_optimaux[i]
-                stock += achats_optimaux[i]
-                id_prochain_appro += 1
-
-            stock -= self.installations[i]
-
-            cout_stockage_mois = stock * cout_stockage
-            cout_actuel += cout_stockage_mois
-            # Le cout total est cumulé jusqu'à la fin du mois actuel est enregistré ici
-            cout_optimal[i+1] = cout_actuel
-
-        # --- config des graphiques --
-
-        ax1.plot(mois, cout_mensuel, label="Achats mensuels", color='#c9c1bc', marker='o', linestyle=':')
-        ax1.plot(mois, cout_une_fois, label="Achat unique (début)", color='#c9c1bc', marker='x', linestyle='--')
-        ax1.plot(mois, cout_optimal, label="Stratégie Optimale", color='#ef7645', marker='s', linewidth=2)
-
-        ax1.set_xlabel('Fin du Mois (Noeud)')
-        ax1.set_ylabel('Coût total cumulé (€)')
-        ax1.set_title("Évolution des coûts cumulés par stratégie")
+        # couleurs des légendes aussi
+        for axe_tmp in fig.axes:
+            if axe_tmp.get_legend():
+                axe_tmp.get_legend().remove()
         ax1.legend()
-        ax1.grid(True, linestyle='--', alpha=0.6)
-        ax1.set_xticks(mois)
-        ax1.set_xticklabels([str(m) for m in mois])
 
-        mois_labels_bar = [f"Mois {i+1}" for i in range(n_months)]
-        bars = ax2.bar(mois_labels_bar, achats_optimaux, color='#ef7645', label='Quantité achetée')
-        ax2.set_xlabel('Mois de commande')
-        ax2.set_ylabel('Unités commandées')
-        ax2.set_title('Stratégie Optimale: Commandes par mois')
-        ax2.grid(True, axis='y', linestyle='--', alpha=0.6)
+        twin_axes = [a for a in fig.axes if a not in (ax1, ax2)]
+        if twin_axes:
+            twin_ax = twin_axes[0]
+            h_bars, l_bars   = ax2.get_legend_handles_labels()
+            h_needs, l_needs = twin_ax.get_legend_handles_labels()
+            ax2.legend(h_bars + h_needs, l_bars + l_needs, loc='upper right')
+        else:
+            ax2.legend([ax2.containers[0]], ['Commandes optimales'], loc='upper right')
 
-        ax2.bar_label(bars, fmt='%g', padding=3, fontsize=9,
-                      labels=[f'{v}' if v > 0 else '' for v in achats_optimaux])
-
-        ax2b = ax2.twinx()
-        ax2b.plot(mois_labels_bar, self.installations, color='grey', linestyle=':', marker='.', label='Besoins (Installations)')
-        ax2b.set_ylabel('Unités nécessaires', color='grey')
-        ax2b.tick_params(axis='y', labelcolor='grey')
-        lines, labels = ax2.get_legend_handles_labels()
-        lines2, labels2 = ax2b.get_legend_handles_labels()
-        ax2b.legend(lines + lines2, labels + labels2, loc='upper right')
-
+        # --- insertion dans l'interface --
         fig.tight_layout(pad=2.0)
-
         canvas = FigureCanvasTkAgg(fig, master=chart_container_frame)
-        canvas_widget = canvas.get_tk_widget()
-        canvas_widget.pack(fill=tk.BOTH, expand=True, pady=5, padx=5)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, pady=5, padx=5)
         canvas.draw()
 
 
