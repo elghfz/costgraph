@@ -17,7 +17,7 @@ def init_graphe(installations, frais_approvisionnement, cout_stockage):
     # ajouter noeud par mois
     n_mois = len(installations) 
     for i in range(n_mois + 1):
-        G.add_noeud(i)
+        G.add_node(i)
     # arcs avec les couts d'approvisionnement + stockage
     for i in range(n_mois):
         for j in range(i + 1, n_mois + 1):
