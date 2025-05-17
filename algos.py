@@ -96,13 +96,13 @@ def reconstruct_chemin_graphe(precedents, deb, fin):
     if fin not in precedents and fin != deb:
         return []  # pas de chemin trouvé
         
-    path = []
+    chemin = []
     noeud_actuel = fin
     while noeud_actuel is not None:
-        path.append(noeud_actuel)
+        chemin.append(noeud_actuel)
         noeud_actuel = precedents.get(noeud_actuel)
-    path.reverse()  # on inverse le chemin pour qu'il soit bien du début à la fin
-    return path
+    chemin.reverse()  # on inverse le chemin pour qu'il soit bien du début à la fin
+    return chemin
 
 # --- Calcul des coûts pour les différentes stratégies ---
 
@@ -153,7 +153,7 @@ def calcul_couts_strategies(installations, frais_approvisionnement, cout_stockag
 # --- Visualisation des résultats de deux façons : évoltion des coûts par mois par strat et achats optimaux à faire ---
 
 def tracer_graphique(installations, frais_approvisionnement, cout_stockage, precedents, n_mois):
-    path_optimal = reconstruct_chemin_graphe(precedents, 0, n_mois)
+    chemin_optimal = reconstruct_chemin_graphe(precedents, 0, n_mois)
     mois = list(range(n_mois + 1))  # de 0 à 6 mois donc 7 éléments
 
     # --- couts des deux stratégies de base ---
@@ -167,13 +167,13 @@ def tracer_graphique(installations, frais_approvisionnement, cout_stockage, prec
     
     cout_actuel = 0
     stock = 0
-    next_supply_index = 1  # index dans path_optimal
+    next_supply_index = 1  # index dans chemin_optimal
     
     for i in range(n_mois):
         # vérifier si c'est un mois d'approvisionnement
-        if next_supply_index < len(path_optimal) and i == path_optimal[next_supply_index-1]:
-            mois_debut = path_optimal[next_supply_index-1]
-            mois_fin = path_optimal[next_supply_index]
+        if next_supply_index < len(chemin_optimal) and i == chemin_optimal[next_supply_index-1]:
+            mois_debut = chemin_optimal[next_supply_index-1]
+            mois_fin = chemin_optimal[next_supply_index]
             
             # quantité achetée
             achats_optimal[i] = sum(installations[mois_debut:mois_fin])
@@ -264,10 +264,10 @@ def tests_algos():
         print("Fonction dijkstra incorrectement implémentée")
 
     print("\nTest de la fonction reconstruct_chemin_graphe:")
-    path = reconstruct_chemin_graphe(_, 0, 4)
-    print(f"Chemin optimal : {path}")
-    expected_path = [0, 2, 1, 3, 4]
-    if path == expected_path:
+    chemin = reconstruct_chemin_graphe(_, 0, 4)
+    print(f"Chemin optimal : {chemin}")
+    expected_chemin = [0, 2, 1, 3, 4]
+    if chemin == expected_chemin:
         print("Fonction reconstruct_chemin_graphe bien implémentée")
     else:
         print("Fonction reconstruct_chemin_graphe incorrectement implémentée")
@@ -302,7 +302,7 @@ def main():
         return
     
     # Reconstruire le chemin optimal
-    path = reconstruct_chemin_graphe(precedents, 0, n_mois)
+    chemin = reconstruct_chemin_graphe(precedents, 0, n_mois)
     cout_optimal = distances[n_mois]
     
     # Calculer les coûts des autres stratégies
@@ -314,9 +314,9 @@ def main():
     print(f"   Coût total: {cout_optimal:.2f} €")
     print("   Politique d'approvisionnement:")
     
-    for i in range(1, len(path)):
-        mois_debut = path[i-1]
-        mois_fin = path[i]
+    for i in range(1, len(chemin)):
+        mois_debut = chemin[i-1]
+        mois_fin = chemin[i]
         cabines = sum(installations[mois_debut:mois_fin])
         cout_appro = G[mois_debut][mois_fin]['weight']
         print(f"   - Au début du mois {mois_debut+1}, approvisionner {cabines} cabines pour les mois {mois_debut+1} à {mois_fin}")
