@@ -66,7 +66,8 @@ def dijkstra(graphe, deb, fin):
     # on utilise un tas binaire minimal pour la gestion des sommets à explorer
     tas_bin_min = [(0, deb)]  # (coût, sommet)
     distances = {deb: 0}
-    precedents = {deb: None}  # prédécesseurs dans un dictionnaire (car faudra reconstruire le chemin après)
+    precedents = {deb: None}  
+    # prédécesseurs dans un dictionnaire (car faudra reconstruire le chemin après)
 
     while tas_bin_min:
         dist_actuelle, noeud_actuel = heapq.heappop(tas_bin_min)
