@@ -1,4 +1,4 @@
-# Optimisation des Coûts d'Approvisionnement
+# Cost Graph : Optimisation des Coûts d'Approvisionnement
 ## Description
 Ce projet vise à optimiser les coûts d'approvisionnement et de stockage pour une entreprise en utilisant des algorithmes de graphes. Le programme permet de comparer différentes stratégies d'approvisionnement (achat unique, achat mensuel, stratégie optimale) et de visualiser les résultats sous forme de graphiques et de rapports.
 ___
